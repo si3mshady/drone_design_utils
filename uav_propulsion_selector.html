@@ -41,8 +41,29 @@
             background: #f1f1f1;
             border-radius: 4px;
         }
-        canvas {
+        .graph-container {
             margin-top: 20px;
+            text-align: center;
+        }
+        canvas {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .explainer {
+            margin-top: 20px;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .explainer h2 {
+            font-size: 1.2em;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        .explainer p {
+            line-height: 1.6;
         }
     </style>
 </head>
@@ -70,64 +91,133 @@
             <input type="number" id="numMotors" placeholder="Enter number of motors">
         </div>
         <div class="input-group">
-            <label for="totalWeight">Total Weight (grams)</label>
-            <input type="number" id="totalWeight" placeholder="Enter total weight of UAV">
+            <label for="totalWeight">Total Weight (g)</label>
+            <input type="number" id="totalWeight" placeholder="Enter total weight of UAV in grams">
         </div>
         <button onclick="calculatePropulsion()">Calculate</button>
+        <button onclick="resetForm()">Reset</button>
         <div class="result" id="result"></div>
-        <canvas id="thrustChart"></canvas>
-        <canvas id="currentChart"></canvas>
+        <div class="graph-container">
+            <canvas id="thrustChart"></canvas>
+            <canvas id="currentChart"></canvas>
+            <canvas id="ratioChart"></canvas>
+        </div>
+        <div class="explainer">
+            <h2>How It Works</h2>
+            <p>
+                This application helps you select a suitable propulsion system for your UAV based on various input parameters:
+                motor KV rating, battery voltage, propeller diameter, propeller pitch, number of motors, and total weight of the UAV.
+            </p>
+            <p>
+                Upon clicking the "Calculate" button, the application computes the motor RPM, thrust per motor in grams,
+                total thrust, thrust-to-weight ratio, and estimated current draw. These calculations are displayed in the result section.
+            </p>
+            <p>
+                The thrust metrics (thrust per motor and total thrust), current draw, and thrust-to-weight ratio are visualized using
+                charts to provide a clear representation of the performance metrics.
+            </p>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        function calculatePropulsion() {
-            const motorKV = parseFloat(document.getElementById('motorKV').value);
-            const voltage = parseFloat(document.getElementById('voltage').value);
-            const propDiameter = parseFloat(document.getElementById('propDiameter').value);
-            const propPitch = parseFloat(document.getElementById('propPitch').value);
-            const numMotors = parseFloat(document.getElementById('numMotors').value);
-            const totalWeight = parseFloat(document.getElementById('totalWeight').value);
+        let motorKVInput = document.getElementById('motorKV');
+        let voltageInput = document.getElementById('voltage');
+        let propDiameterInput = document.getElementById('propDiameter');
+        let propPitchInput = document.getElementById('propPitch');
+        let numMotorsInput = document.getElementById('numMotors');
+        let totalWeightInput = document.getElementById('totalWeight');
 
-            if (isNaN(motorKV) || isNaN(voltage) || isNaN(propDiameter) || isNaN(propPitch) || isNaN(numMotors) || isNaN(totalWeight)) {
+        let thrustChart = null;
+        let currentChart = null;
+        let ratioChart = null;
+
+        function calculatePropulsion() {
+            const motorKV = parseFloat(motorKVInput.value);
+            const voltage = parseFloat(voltageInput.value);
+            const propDiameter = parseFloat(propDiameterInput.value);
+            const propPitch = parseFloat(propPitchInput.value);
+            const numMotors = parseFloat(numMotorsInput.value);
+            const totalWeightGrams = parseFloat(totalWeightInput.value);
+
+            if (isNaN(motorKV) || isNaN(voltage) || isNaN(propDiameter) || isNaN(propPitch) || isNaN(numMotors) || isNaN(totalWeightGrams)) {
                 document.getElementById('result').innerText = "Please fill in all fields with valid numbers.";
                 return;
             }
 
             const motorRPM = motorKV * voltage;
-            const thrustPerMotor = (propDiameter / 10) * (propPitch / 4) * (motorRPM / 1000);
-            const totalThrust = thrustPerMotor * numMotors;
-            const thrustToWeightRatio = totalThrust / (totalWeight / 1000); // Convert weight to Kg
+            const thrustPerMotorGrams = (propDiameter / 10) * (propPitch / 4) * (motorRPM / 1000);
+            const totalThrustGrams = thrustPerMotorGrams * numMotors;
+            const thrustToWeightRatio = totalThrustGrams / totalWeightGrams;
+            const currentDrawAmps = (motorKV * voltage) / 1000;
 
             let resultText = `
-                Motor RPM: ${motorRPM.toFixed(2)} RPM\n
-                Thrust per Motor: ${(thrustPerMotor * 1000).toFixed(2)} grams\n
-                Total Thrust: ${(totalThrust * 1000).toFixed(2)} grams\n
-                Thrust to Weight Ratio: 1:${(1 / thrustToWeightRatio).toFixed(2)}\n
+                Motor RPM: ${motorRPM.toFixed(2)} RPM<br>
+                Thrust per Motor: ${thrustPerMotorGrams.toFixed(2)} grams<br>
+                Total Thrust: ${totalThrustGrams.toFixed(2)} grams<br>
+                Thrust to Weight Ratio: ${(thrustToWeightRatio * 100).toFixed(0)}%<br>
+                Current Draw: ${currentDrawAmps.toFixed(2)} Amps
             `;
 
-            if (thrustToWeightRatio > 2) {
-                resultText += "The propulsion system is suitable for stable flight.";
+            if (thrustToWeightRatio > 0.2) {
+                resultText += "<br>The propulsion system is suitable for stable flight.";
             } else {
-                resultText += "The propulsion system may not be suitable for stable flight. Consider using more powerful motors or reducing the weight.";
+                resultText += "<br>The propulsion system may not be suitable for stable flight. Consider using more powerful motors or reducing the weight.";
             }
 
-            document.getElementById('result').innerText = resultText;
+            document.getElementById('result').innerHTML = resultText;
 
-            // Bar chart data
-            const labels = ['Motor RPM', 'Thrust per Motor (grams)', 'Total Thrust (grams)', 'Thrust to Weight Ratio'];
-            const data = [motorRPM.toFixed(2), (thrustPerMotor * 1000).toFixed(2), (totalThrust * 1000).toFixed(2), thrustToWeightRatio.toFixed(2)];
+            // Update charts
+            updateThrustChart(thrustPerMotorGrams, totalThrustGrams);
+            updateCurrentChart(currentDrawAmps);
+            updateRatioChart(thrustToWeightRatio);
+        }
 
-            // Thrust chart
-            const thrustChart = document.getElementById('thrustChart').getContext('2d');
-            new Chart(thrustChart, {
+        function updateThrustChart(thrustPerMotorGrams, totalThrustGrams) {
+            if (thrustChart) {
+                thrustChart.data.datasets[0].data = [thrustPerMotorGrams.toFixed(2), totalThrustGrams.toFixed(2)];
+                thrustChart.update();
+            } else {
+                thrustChart = createThrustChart(thrustPerMotorGrams, totalThrustGrams);
+            }
+        }
+
+        function updateCurrentChart(currentDrawAmps) {
+            if (currentChart) {
+                currentChart.data.datasets[0].data = [currentDrawAmps.toFixed(2)];
+                currentChart.update();
+            } else {
+                currentChart = createCurrentChart(currentDrawAmps);
+            }
+        }
+
+        function updateRatioChart(thrustToWeightRatio) {
+            if (ratioChart) {
+                ratioChart.data.datasets[0].data = [(thrustToWeightRatio * 100).toFixed(2)];
+                ratioChart.update();
+            } else {
+                ratioChart = createRatioChart(thrustToWeightRatio);
+            }
+        }
+
+        function createThrustChart(thrustPerMotorGrams, totalThrustGrams) {
+            const ctx = document.getElementById('thrustChart').getContext('2d');
+            return new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: [labels[1], labels[2]],
+                    labels: ['Thrust per Motor (grams)', 'Total Thrust (grams)'],
                     datasets: [{
                         label: 'Thrust Metrics',
-                        data: [data[1], data[2]],
-                        backgroundColor: ['#ff4500', '#ff6347']
+                        data: [thrustPerMotorGrams.toFixed(2), totalThrustGrams.toFixed(2)],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.5)', // Red for Thrust per Motor
+                            'rgba(54, 162, 235, 0.5)' // Blue for Total Thrust
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)'
+                        ],
+                        borderWidth: 1
                     }]
                 },
                 options: {
@@ -138,17 +228,20 @@
                     }
                 }
             });
+        }
 
-            // Current chart
-            const currentChart = document.getElementById('currentChart').getContext('2d');
-            new Chart(currentChart, {
+        function createCurrentChart(currentDrawAmps) {
+            const ctx = document.getElementById('currentChart').getContext('2d');
+            return new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: [labels[0], labels[3]],
+                    labels: ['Current Draw (Amps)'],
                     datasets: [{
-                        label: 'Motor and Weight Metrics',
-                        data: [data[0], data[3]],
-                        backgroundColor: ['#4682b4', '#6a5acd']
+                        label: 'Current Draw',
+                        data: [currentDrawAmps.toFixed(2)],
+                        backgroundColor: 'rgba(255, 159, 64, 0.5)', // Orange
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 1
                     }]
                 },
                 options: {
@@ -159,6 +252,59 @@
                     }
                 }
             });
+        }
+
+        function createRatioChart(thrustToWeightRatio) {
+            const ctx = document.getElementById('ratioChart').getContext('2d');
+            return new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Thrust-to-Weight Ratio (%)'],
+                    datasets: [{
+                        label: 'Thrust-to-Weight Ratio',
+                        data: [(thrustToWeightRatio * 100).toFixed(2)],
+                        backgroundColor: 'rgba(75, 192, 192, 0.5)', // Aqua
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function resetForm() {
+            motorKVInput.value = '';
+            voltageInput.value = '';
+            propDiameterInput.value = '';
+            propPitchInput.value = '';
+            numMotorsInput.value = '';
+            totalWeightInput.value = '';
+
+            if (thrustChart) {
+                thrustChart.destroy();
+                thrustChart = null;
+            }
+            if (currentChart) {
+                currentChart.destroy();
+                currentChart = null;
+            }
+            if (ratioChart) {
+                ratioChart.destroy();
+                ratioChart = null;
+            }
+
+            document.getElementById('result').innerHTML = '';
         }
     </script>
 </body>
