@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UAV Propulsion System Selector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(120deg, #f6d365 0%, #fda085 100%);
+            color: #333;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        canvas {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>UAV Propulsion System Selector</h1>
+        <div class="input-group">
+            <label for="motorKV">Motor KV Rating</label>
+            <input type="number" id="motorKV" placeholder="Enter motor KV rating">
+        </div>
+        <div class="input-group">
+            <label for="voltage">Battery Voltage (V)</label>
+            <input type="number" id="voltage" placeholder="Enter battery voltage">
+        </div>
+        <div class="input-group">
+            <label for="propDiameter">Propeller Diameter (inches)</label>
+            <input type="number" id="propDiameter" placeholder="Enter propeller diameter">
+        </div>
+        <div class="input-group">
+            <label for="propPitch">Propeller Pitch</label>
+            <input type="number" id="propPitch" placeholder="Enter propeller pitch">
+        </div>
+        <div class="input-group">
+            <label for="numMotors">Number of Motors</label>
+            <input type="number" id="numMotors" placeholder="Enter number of motors">
+        </div>
+        <div class="input-group">
+            <label for="totalWeight">Total Weight (grams)</label>
+            <input type="number" id="totalWeight" placeholder="Enter total weight of UAV">
+        </div>
+        <button onclick="calculatePropulsion()">Calculate</button>
+        <div class="result" id="result"></div>
+        <canvas id="thrustChart"></canvas>
+        <canvas id="currentChart"></canvas>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function calculatePropulsion() {
+            const motorKV = parseFloat(document.getElementById('motorKV').value);
+            const voltage = parseFloat(document.getElementById('voltage').value);
+            const propDiameter = parseFloat(document.getElementById('propDiameter').value);
+            const propPitch = parseFloat(document.getElementById('propPitch').value);
+            const numMotors = parseFloat(document.getElementById('numMotors').value);
+            const totalWeight = parseFloat(document.getElementById('totalWeight').value);
+
+            if (isNaN(motorKV) || isNaN(voltage) || isNaN(propDiameter) || isNaN(propPitch) || isNaN(numMotors) || isNaN(totalWeight)) {
+                document.getElementById('result').innerText = "Please fill in all fields with valid numbers.";
+                return;
+            }
+
+            const motorRPM = motorKV * voltage;
+            const thrustPerMotor = (propDiameter / 10) * (propPitch / 4) * (motorRPM / 1000);
+            const totalThrust = thrustPerMotor * numMotors;
+            const thrustToWeightRatio = totalThrust / (totalWeight / 1000); // Convert weight to Kg
+
+            let resultText = `
+                Motor RPM: ${motorRPM.toFixed(2)} RPM\n
+                Thrust per Motor: ${(thrustPerMotor * 1000).toFixed(2)} grams\n
+                Total Thrust: ${(totalThrust * 1000).toFixed(2)} grams\n
+                Thrust to Weight Ratio: 1:${(1 / thrustToWeightRatio).toFixed(2)}\n
+            `;
+
+            if (thrustToWeightRatio > 2) {
+                resultText += "The propulsion system is suitable for stable flight.";
+            } else {
+                resultText += "The propulsion system may not be suitable for stable flight. Consider using more powerful motors or reducing the weight.";
+            }
+
+            document.getElementById('result').innerText = resultText;
+
+            // Bar chart data
+            const labels = ['Motor RPM', 'Thrust per Motor (grams)', 'Total Thrust (grams)', 'Thrust to Weight Ratio'];
+            const data = [motorRPM.toFixed(2), (thrustPerMotor * 1000).toFixed(2), (totalThrust * 1000).toFixed(2), thrustToWeightRatio.toFixed(2)];
+
+            // Thrust chart
+            const thrustChart = document.getElementById('thrustChart').getContext('2d');
+            new Chart(thrustChart, {
+                type: 'bar',
+                data: {
+                    labels: [labels[1], labels[2]],
+                    datasets: [{
+                        label: 'Thrust Metrics',
+                        data: [data[1], data[2]],
+                        backgroundColor: ['#ff4500', '#ff6347']
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Current chart
+            const currentChart = document.getElementById('currentChart').getContext('2d');
+            new Chart(currentChart, {
+                type: 'bar',
+                data: {
+                    labels: [labels[0], labels[3]],
+                    datasets: [{
+                        label: 'Motor and Weight Metrics',
+                        data: [data[0], data[3]],
+                        backgroundColor: ['#4682b4', '#6a5acd']
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
