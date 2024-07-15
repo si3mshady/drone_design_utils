@@ -22,8 +22,8 @@ def calculate_thrust_and_current():
 
         diameter, pitch = float(diameter_str), float(pitch_str)
 
-        # Calculate battery voltage (updated to 4.1V per LiPo cell)
-        voltage = battery_cells * 4.1
+        # Calculate battery voltage
+        voltage = battery_cells * 4.1  # Assuming 4.1V per LiPo cell
 
         # Calculate RPM
         rpm = kv_rating * voltage
@@ -32,11 +32,10 @@ def calculate_thrust_and_current():
         thrust = (diameter**4 * pitch) / 1000000 * rpm**2 * 0.000000011 * 1000
 
         # Estimate current draw in amps (A)
-        # Here we use a simplified empirical formula
         current_draw = (thrust / 1000) * (kv_rating / 1000) * battery_cells * 10
 
-        # Calculate number of ESCs required with 30% margin
-        escs_needed = current_draw * 1.3
+        # Calculate recommended ESC rating (30% above current draw)
+        esc_rating = current_draw * 1.3
 
         # Explanation of calculations
         explanation = (f"Calculations:\n"
@@ -44,11 +43,12 @@ def calculate_thrust_and_current():
                        f"2. RPM = KV Rating * Voltage\n"
                        f"3. Thrust (g) = (Diameter^4 * Pitch) / 1000000 * RPM^2 * 0.000000011 * 1000\n"
                        f"4. Current Draw (A) = (Thrust / 1000) * (KV Rating / 1000) * Battery Cells * 10\n"
-                       f"5. ESCs Needed (with 30% margin) = {escs_needed:.2f} A")
+                       f"5. Recommended ESC Rating (A) = Current Draw * 1.3")
 
         # Update result label
         result_label.config(text=f"Estimated Thrust: {thrust:.2f} g\n"
-                                 f"Estimated Current Draw: {current_draw:.2f} A\n\n"
+                                 f"Estimated Current Draw: {current_draw:.2f} A\n"
+                                 f"Recommended ESC Rating: {esc_rating:.2f} A\n\n"
                                  f"{explanation}")
     except ValueError:
         result_label.config(text="Please enter valid values.")
@@ -59,42 +59,58 @@ def update_slider_label(val):
 # Create main window
 root = tk.Tk()
 root.title("Drone Thrust and Current Calculator")
-root.geometry("600x400")
-root.configure(bg="#2c3e50")
+root.geometry("800x600")
+root.configure(bg="#333333")  # Dark theme
 
 # Style
 style = ttk.Style()
 style.theme_use("clam")
-style.configure("TFrame", background="#34495e")
-style.configure("TLabel", background="#34495e", foreground="#ecf0f1", font=("Helvetica", 12))
-style.configure("TButton", background="#3498db", foreground="#ecf0f1", font=("Helvetica", 12))
-style.configure("TEntry", font=("Helvetica", 12))
-style.configure("TScale", background="#34495e")
+style.configure("TFrame", background="#333333")  # Dark theme
+style.configure("TLabel", background="#333333", foreground="#ffffff", font=("Helvetica", 12))  # White text
+style.configure("TButton", background="#3498db", foreground="#ffffff", font=("Helvetica", 12))  # Blue buttons
+style.configure("TEntry", fieldbackground="#555555", foreground="#ffffff", font=("Helvetica", 12))  # Dark entry fields
+style.configure("TScale", background="#333333", troughcolor="#555555", sliderlength=20)  # Dark slider
+style.configure("TScrollbar", background="#555555")  # Dark scrollbar
+style.configure("TCombobox", background="#555555", fieldbackground="#555555", font=("Helvetica", 12))  # Dark combobox
 
 # Create and place widgets
 frame = ttk.Frame(root, padding="20")
 frame.pack(fill=tk.BOTH, expand=True)
 
-ttk.Label(frame, text="Propeller (DxP, e.g., 5045):").grid(row=0, column=0, sticky="w", pady=5)
-prop_entry = ttk.Entry(frame)
+# Header section
+header_frame = ttk.Frame(frame, padding="10")
+header_frame.grid(row=0, column=0, columnspan=2, pady=10)
+
+ttk.Label(header_frame, text="Box 24 - Detail Line Information", font=("Helvetica", 16, "bold")).grid(row=0, column=0, sticky="w", pady=5)
+
+# Input section
+input_frame = ttk.Frame(frame, padding="10")
+input_frame.grid(row=1, column=0, columnspan=2, pady=10)
+
+ttk.Label(input_frame, text="Propeller (DxP, e.g., 5045):").grid(row=0, column=0, sticky="w", pady=5)
+prop_entry = ttk.Entry(input_frame)
 prop_entry.grid(row=0, column=1, pady=5, padx=10)
 
-ttk.Label(frame, text="Motor KV:").grid(row=1, column=0, sticky="w", pady=5)
-kv_entry = ttk.Entry(frame)
+ttk.Label(input_frame, text="Motor KV:").grid(row=1, column=0, sticky="w", pady=5)
+kv_entry = ttk.Entry(input_frame)
 kv_entry.grid(row=1, column=1, pady=5, padx=10)
 
-slider_label = ttk.Label(frame, text=f"Battery Cells: 3", font=("Helvetica", 12))
+slider_label = ttk.Label(input_frame, text=f"Battery Cells: 3", font=("Helvetica", 12))
 slider_label.grid(row=2, column=1, pady=5, padx=10)
 
-ttk.Label(frame, text="Battery (S rating):").grid(row=3, column=0, sticky="w", pady=5)
-battery_slider = ttk.Scale(frame, from_=1, to=6, orient=tk.HORIZONTAL, command=update_slider_label)
+ttk.Label(input_frame, text="Battery (S rating):").grid(row=3, column=0, sticky="w", pady=5)
+battery_slider = ttk.Scale(input_frame, from_=1, to=6, orient=tk.HORIZONTAL, command=update_slider_label)
 battery_slider.set(3)
 battery_slider.grid(row=3, column=1, pady=5, padx=10)
 
-calculate_button = ttk.Button(frame, text="Calculate", command=calculate_thrust_and_current)
+calculate_button = ttk.Button(input_frame, text="Calculate", command=calculate_thrust_and_current)
 calculate_button.grid(row=4, column=0, columnspan=2, pady=20)
 
-result_label = ttk.Label(frame, text="", wraplength=400, anchor="center")
-result_label.grid(row=5, column=0, columnspan=2)
+# Result section
+result_frame = ttk.Frame(frame, padding="10")
+result_frame.grid(row=2, column=0, columnspan=2, pady=10)
+
+result_label = ttk.Label(result_frame, text="", wraplength=400, anchor="center", background="#333333", foreground="#ffffff")  # White text
+result_label.grid(row=0, column=0, columnspan=2)
 
 root.mainloop()

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Thrust and Current Calculator</title>
+    <style>
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            background-color: #f0f0f0; /* Light background for summer theme */
+            color: #333333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow-y: auto; /* Enable vertical scrolling */
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 600px;
+            max-height: 80vh; /* Limit height to 80% of viewport height */
+            overflow-y: auto; /* Enable content scrolling */
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            text-align: left;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            background-color: #3498db;
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #result {
+            margin-top: 20px;
+            text-align: left;
+        }
+        canvas {
+            margin-top: 20px;
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Drone Thrust and Current Calculator</h1>
+        <div id="inputs">
+            <label for="propeller">Propeller (DxP, e.g., 5045):</label>
+            <input type="text" id="propeller" placeholder="Enter propeller size">
+            
+            <label for="kv">Motor KV:</label>
+            <input type="number" id="kv" placeholder="Enter KV rating">
+            
+            <label for="battery">Battery (S rating):</label>
+            <select id="battery">
+                <option value="1">1S</option>
+                <option value="2">2S</option>
+                <option value="3" selected>3S</option>
+                <option value="4">4S</option>
+                <option value="5">5S</option>
+                <option value="6">6S</option>
+            </select>
+            
+            <button onclick="calculate()">Calculate</button>
+        </div>
+        <div id="result"></div>
+        <div id="charts">
+            <canvas id="thrustChart"></canvas>
+            <canvas id="currentChart"></canvas>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        function calculate() {
+            try {
+                const propSize = document.getElementById('propeller').value.trim();
+                const batteryCells = parseInt(document.getElementById('battery').value);
+                const kvRating = parseFloat(document.getElementById('kv').value);
+                
+                if (!propSize.includes('x')) {
+                    document.getElementById('result').innerHTML = "Please enter propeller size in format DxP (e.g., 5045).";
+                    return;
+                }
+                
+                const [diameterStr, pitchStr] = propSize.split('x');
+                const diameter = parseFloat(diameterStr);
+                const pitch = parseFloat(pitchStr);
+                
+                if (isNaN(diameter) || isNaN(pitch)) {
+                    document.getElementById('result').innerHTML = "Please enter valid numeric values for propeller size.";
+                    return;
+                }
+                
+                const voltage = batteryCells * 4.1; // Assuming 4.1V per LiPo cell
+                const rpm = kvRating * voltage;
+                
+                const thrust = (Math.pow(diameter, 4) * pitch) / 1000000 * Math.pow(rpm, 2) * 0.000000011 * 1000;
+                const currentDraw = (thrust / 1000) * (kvRating / 1000) * batteryCells * 10;
+                const escRating = currentDraw * 1.3;
+                
+                const explanation = `
+                    <p><strong>Calculations:</strong></p>
+                    <p>1. Battery Voltage = Battery Cells * 4.1V</p>
+                    <p>2. RPM = KV Rating * Voltage</p>
+                    <p>3. Thrust (g) = (Diameter^4 * Pitch) / 1000000 * RPM^2 * 0.000000011 * 1000</p>
+                    <p>4. Current Draw (A) = (Thrust / 1000) * (KV Rating / 1000) * Battery Cells * 10</p>
+                    <p>5. Recommended ESC Rating (A) = Current Draw * 1.3</p>
+                `;
+                
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `
+                    <p>Estimated Thrust: ${thrust.toFixed(2)} g</p>
+                    <p>Estimated Current Draw: ${currentDraw.toFixed(2)} A</p>
+                    <p>Recommended ESC Rating: ${escRating.toFixed(2)} A</p>
+                    ${explanation}
+                `;
+                
+                // Chart.js
+                const thrustChartCtx = document.getElementById('thrustChart').getContext('2d');
+                const currentChartCtx = document.getElementById('currentChart').getContext('2d');
+                
+                new Chart(thrustChartCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Thrust'],
+                        datasets: [{
+                            label: 'Thrust (g)',
+                            backgroundColor: '#3498db',
+                            data: [thrust.toFixed(2)],
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true
+                                }
+                            }]
+                        }
+                    }
+                });
+                
+                new Chart(currentChartCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Current Draw'],
+                        datasets: [{
+                            label: 'Current Draw (A)',
+                            backgroundColor: '#e74c3c',
+                            data: [currentDraw.toFixed(2)],
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            yAxes: [{
+                                ticks: {
+                                    beginAtZero: true
+                                }
+                            }]
+                        }
+                    }
+                });
+                
+            } catch (error) {
+                document.getElementById('result').innerHTML = "Please enter valid values.";
+            }
+        }
+    </script>
+</body>
+</html>
